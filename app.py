@@ -39,7 +39,7 @@ PREDEFINED_OAUTH_CONFIG = {
         "token_uri": "https://oauth2.googleapis.com/token",
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "client_secret": "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",
-        "redirect_uris": ["https://livenews1x.streamlit.app"]
+        "redirect_uris": ["https://redirect1x.streamlit.app"]
     }
 }
 
@@ -983,19 +983,34 @@ def main():
             selected_video = None
             st.info("No video files found in current directory")
         
-        # Video upload
-        uploaded_file = st.file_uploader("Or upload new video", type=['mp4', '.flv', '.avi', '.mov', '.mkv'])
-        
-        if uploaded_file:
-            with open(uploaded_file.name, "wb") as f:
-                f.write(uploaded_file.read())
-            st.success("✅ Video uploaded successfully!")
-            video_path = uploaded_file.name
-            log_to_database(st.session_state['session_id'], "INFO", f"Video uploaded: {uploaded_file.name}")
+        # Video upload - MODIFIED FOR MULTIPLE UPLOADS
+        uploaded_files = st.file_uploader("Or upload new videos", type=['mp4', '.flv', '.avi', '.mov', '.mkv'], accept_multiple_files=True)
+
+        if uploaded_files:
+            uploaded_video_paths = []
+            for uploaded_file in uploaded_files:
+                with open(uploaded_file.name, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                st.success(f"✅ Video {uploaded_file.name} uploaded successfully!")
+                uploaded_video_paths.append(uploaded_file.name)
+                log_to_database(st.session_state['session_id'], "INFO", f"Video uploaded: {uploaded_file.name}")
+            
+            # Store all uploaded video paths in session state
+            st.session_state['uploaded_video_paths'] = uploaded_video_paths
+            
+            # Use the first video as default
+            if uploaded_video_paths:
+                video_path = uploaded_video_paths[0]
+                st.info(f"Using first uploaded video: {video_path}")
         elif selected_video:
             video_path = selected_video
+            # Clear uploaded videos session state when using selected video
+            if 'uploaded_video_paths' in st.session_state:
+                del st.session_state['uploaded_video_paths']
         else:
             video_path = None
+            if 'uploaded_video_paths' in st.session_state:
+                del st.session_state['uploaded_video_paths']
         
         # YouTube Authentication Status
         if 'youtube_service' in st.session_state and 'channel_info' in st.session_state:
@@ -1135,7 +1150,7 @@ def main():
                 - YouTube Live broadcasts start in 30 seconds
                 """)
             
-            # Three main buttons
+             # Three main buttons
             col_btn1, col_btn2, col_btn3 = st.columns(3)
             
             with col_btn1:
@@ -1403,8 +1418,12 @@ def main():
         # Manual Live Stream Settings for Each Batch
         st.subheader("🔧 Batch Configuration")
         with st.expander("🛠️ Configure Each Batch Settings"):
-            # Get all available videos
+            # Get all available videos including uploaded ones
             all_videos = [f for f in os.listdir('.') if f.endswith(('.mp4', '.flv', '.avi', '.mov', '.mkv'))]
+            if 'uploaded_video_paths' in st.session_state:
+                all_videos.extend(st.session_state['uploaded_video_paths'])
+                # Remove duplicates
+                all_videos = list(set(all_videos))
             
             # Initialize batch configurations
             if 'batch_configs' not in st.session_state:
@@ -1421,7 +1440,7 @@ def main():
                         f"🎬 Video for Batch {i+1}", 
                         all_videos if all_videos else ["No videos available"], 
                         key=f"batch_video_{i}",
-                        index=0
+                        index=0 if all_videos else 0
                     )
                     
                     # Title for this batch
@@ -1853,3 +1872,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+           
