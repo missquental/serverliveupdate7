@@ -13,7 +13,11 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import base64
-
+try:
+    import plotly.express as px
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly"])
+    import plotly.express as px
 # Install required packages
 try:
     import streamlit as st
